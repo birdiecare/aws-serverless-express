@@ -18,8 +18,8 @@ const url = require('url')
 const binarycase = require('binary-case')
 const isType = require('type-is')
 
-function getPathWithQueryStringParams (event) {
-  return url.format({ pathname: event.path, query: event.queryStringParameters })
+function getPathWithQueryStringParams (event, allowMultipleQueryParams) {
+  return url.format({ pathname: event.path, query: allowMultipleQueryParams ? event.multiValueQueryStringParameters : event.queryStringParameters })
 }
 function getEventBody (event) {
   return Buffer.from(event.body, event.isBase64Encoded ? 'base64' : 'utf8')
@@ -38,7 +38,7 @@ function isContentTypeBinaryMimeType (params) {
   return params.binaryMimeTypes.length > 0 && !!isType.is(params.contentType, params.binaryMimeTypes)
 }
 
-function mapApiGatewayEventToHttpRequest (event, context, socketPath) {
+function mapApiGatewayEventToHttpRequest (event, context, socketPath, allowMultipleQueryParams) {
   const headers = Object.assign({}, event.headers)
 
   // NOTE: API Gateway is not setting Content-Length header on requests even when they have a body
@@ -55,7 +55,7 @@ function mapApiGatewayEventToHttpRequest (event, context, socketPath) {
 
   return {
     method: event.httpMethod,
-    path: getPathWithQueryStringParams(event),
+    path: getPathWithQueryStringParams(event, allowMultipleQueryParams),
     headers,
     socketPath
     // protocol: `${headers['X-Forwarded-Proto']}:`,
@@ -130,9 +130,9 @@ function forwardLibraryErrorResponseToApiGateway (error, resolver) {
   resolver.succeed({ response: errorResponse })
 }
 
-function forwardRequestToNodeServer (server, event, context, resolver) {
+function forwardRequestToNodeServer (server, event, context, resolver, allowMultipleQueryParams) {
   try {
-    const requestOptions = mapApiGatewayEventToHttpRequest(event, context, getSocketPath(server._socketPathSuffix))
+    const requestOptions = mapApiGatewayEventToHttpRequest(event, context, getSocketPath(server._socketPathSuffix), allowMultipleQueryParams)
     const req = http.request(requestOptions, (response) => forwardResponseToApiGateway(server, response, resolver))
     if (event.body) {
       const body = getEventBody(event)
@@ -194,12 +194,12 @@ function createServer (requestListener, serverListenCallback, binaryTypes) {
   return server
 }
 
-function proxy (server, event, context, resolutionMode, callback) {
+function proxy (server, event, context, resolutionMode, callback, allowMultipleQueryParams) {
   // DEPRECATED: Legacy support
   if (!resolutionMode) {
     const resolver = makeResolver({ context, resolutionMode: 'CONTEXT_SUCCEED' })
     if (server._isListening) {
-      forwardRequestToNodeServer(server, event, context, resolver)
+      forwardRequestToNodeServer(server, event, context, resolver, allowMultipleQueryParams)
       return server
     } else {
       return startServer(server)
@@ -221,10 +221,10 @@ function proxy (server, event, context, resolutionMode, callback) {
       })
 
       if (server._isListening) {
-        forwardRequestToNodeServer(server, event, context, resolver)
+        forwardRequestToNodeServer(server, event, context, resolver, allowMultipleQueryParams)
       } else {
         startServer(server)
-          .on('listening', () => forwardRequestToNodeServer(server, event, context, resolver))
+          .on('listening', () => forwardRequestToNodeServer(server, event, context, resolver, allowMultipleQueryParams))
       }
     })
   }

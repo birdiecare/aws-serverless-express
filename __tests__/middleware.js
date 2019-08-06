@@ -10,6 +10,10 @@ const generateMockReq = () => {
         queryStringParameters: {
           foo: '🖖',
           bar: '~!@#$%^&*()_+`-=;\':",./<>?`'
+        },
+        multiValueQueryStringParameters: {
+          foo: ['🖖', '🚀'],
+          bar: '~!@#$%^&*()_+`-=;\':",./<>?`'
         }
       })),
       'x-apigateway-context': encodeURIComponent(JSON.stringify({foo: 'bar'}))

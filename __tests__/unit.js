@@ -46,6 +46,23 @@ test('getPathWithQueryStringParams: 2 params', () => {
   expect(pathWithQueryStringParams).toEqual('/foo/bar?bizz=bazz&buzz=bozz')
 })
 
+test('getPathWithQueryStringParams: array param', () => {
+  const event = {
+    path: '/foo/bar',
+    queryStringParameters: {
+      'bizz': 'buzz'
+    },
+    multiValueQueryStringParameters: {
+      'bizz': [
+        'bazz',
+        'buzz'
+      ]
+    }
+  }
+  const pathWithQueryStringParams = awsServerlessExpress.getPathWithQueryStringParams(event, true)
+  expect(pathWithQueryStringParams).toEqual('/foo/bar?bizz=bazz&bizz=buzz')
+})
+
 function mapApiGatewayEventToHttpRequest (headers) {
   const event = {
     path: '/foo',
